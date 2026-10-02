@@ -198,6 +198,9 @@ window.MS = (function(){
     hard:   { label: '高级', rows: 16, cols: 30, mines: 99 },
   };
   const $ = id => document.getElementById(id);
+  function buzz(pattern){
+    try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {}
+  }
   const board = $('board'), wrap = $('boardWrap'), face = $('face');
   let st = null, cellEls = [], hitIndex = -1;
   let curDiff = localStorage.getItem('ms-diff') || 'easy';
@@ -307,7 +310,7 @@ window.MS = (function(){
     gameOver = true; won = false; hitIndex = hit; stopTimer();
     updateAll();
     face.textContent = '😵';
-    if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
+    buzz([60, 40, 60]);
     showBanner('💥 踩雷了！', '翻开了 ' + st.revealedCount + ' 格 · 点表情重开');
   }
 
@@ -341,8 +344,9 @@ window.MS = (function(){
     clearTimeout(pressTimer);
     pressTimer = setTimeout(() => {
       pressFired = true;
+      const wasFlagged = st.flagged[pressCell];
       doFlag(pressCell);
-      if (navigator.vibrate) navigator.vibrate(30);
+      buzz(wasFlagged ? 20 : [50, 40, 50]);
     }, 320);
   });
   board.addEventListener('pointermove', e => {
