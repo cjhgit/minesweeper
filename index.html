@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#12151c">
+<title>扫雷 · Minesweeper</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
+  :root{--cs:36px;--gap:3px}
+  html,body{height:100%}
+  body{
+    background:radial-gradient(1200px 800px at 50% -10%,#1c2233,#12151c 60%);
+    color:#dfe4ee;font-family:"Segoe UI",system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden;overscroll-behavior:none;
+    padding:calc(6px + env(safe-area-inset-top)) calc(8px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left));
+  }
+  header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 4px 8px}
+  .stat{
+    min-width:76px;display:flex;align-items:center;justify-content:center;gap:6px;
+    background:#0d1017;border:1px solid #2a3145;border-radius:10px;padding:8px 10px;
+    font-variant-numeric:tabular-nums;font-size:20px;font-weight:700;letter-spacing:1px;
+    box-shadow:inset 0 2px 6px rgba(0,0,0,.5);
+  }
+  .stat .lbl{font-size:11px;font-weight:400;opacity:.55;letter-spacing:0}
+  #face{
+    font-size:28px;line-height:1;background:#0d1017;border:1px solid #2a3145;border-radius:10px;
+    padding:8px 14px;cursor:pointer;transition:transform .08s;
+  }
+  #face:active{transform:scale(.92)}
+  #controls{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;padding:0 2px 8px}
+  .btn{
+    background:#232a3d;border:1px solid #333c56;color:#c9d1e2;border-radius:9px;
+    padding:8px 13px;font-size:14px;cursor:pointer;transition:all .12s;
+  }
+  .btn.active{background:#3b82f6;border-color:#3b82f6;color:#fff;box-shadow:0 2px 10px rgba(59,130,246,.4)}
+  .btn:active{transform:scale(.95)}
+  #flagBtn.active{background:#e0564b;border-color:#e0564b;box-shadow:0 2px 10px rgba(224,86,75,.4)}
+  #boardWrap{
+    flex:1;min-height:0;overflow:auto;display:flex;border-radius:12px;
+    background:rgba(13,16,23,.6);border:1px solid #242b3d;position:relative;
+    -webkit-overflow-scrolling:touch;
+  }
+  #board{
+    margin:auto;padding:6px;display:grid;gap:var(--gap);
+  }
+  .cell{
+    width:var(--cs);height:var(--cs);border-radius:5px;
+    background:linear-gradient(145deg,#3b4459,#2b3244);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.09),0 1px 2px rgba(0,0,0,.45);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:calc(var(--cs)*.52);
+  }
+  .cell.open{
+    background:#171c28;box-shadow:inset 0 0 0 1px rgba(255,255,255,.03);
+    animation:pop .13s ease;
+  }
+  .cell.flag{display:flex;align-items:center;justify-content:center}
+  .cell.mine{background:#171c28}
+  .cell.boom{background:#e53935;animation:shake .3s}
+  .cell.wrong{background:#171c28;opacity:.9}
+  @keyframes pop{from{transform:scale(.75);opacity:.4}to{transform:scale(1);opacity:1}}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
+  .n1{color:#64b5f6}.n2{color:#81c784}.n3{color:#e57373}.n4{color:#ba68c8}
+  .n5{color:#ffb74d}.n6{color:#4dd0e1}.n7{color:#ffd54f}.n8{color:#ffffff}
+  #banner{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    background:rgba(10,12,18,.72);backdrop-filter:blur(3px);z-index:10;border-radius:12px;
+  }
+  #banner.hidden{display:none}
+  #banner .card{
+    background:#1a2030;border:1px solid #33405e;border-radius:16px;padding:26px 34px;
+    text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.6);animation:pop .18s ease;
+  }
+  #bTitle{font-size:24px;font-weight:800;margin-bottom:6px}
+  #bSub{font-size:14px;color:#9aa5bd;margin-bottom:16px}
+  #bBtn{
+    background:#3b82f6;border:none;color:#fff;font-size:16px;font-weight:700;
+    border-radius:10px;padding:10px 26px;cursor:pointer;
+  }
+  #bBtn:active{transform:scale(.95)}
+  footer{text-align:center;font-size:12px;color:#6b7590;padding-top:8px}
+  @media (max-width:380px){.stat{min-width:64px;font-size:17px}#face{font-size:24px;padding:7px 11px}}
+</style>
+</head>
+<body>
+  <header>
+    <div class="stat">🚩<span id="mineCount">010</span></div>
+    <button id="face" title="重新开始">😊</button>
+    <div class="stat">⏱<span id="time">000</span></div>
+  </header>
+  <div id="controls">
+    <button class="btn diff" data-d="easy">初级</button>
+    <button class="btn diff" data-d="medium">中级</button>
+    <button class="btn diff" data-d="hard">高级</button>
+    <button class="btn" id="flagBtn">🚩 旗子模式</button>
+  </div>
+  <div id="boardWrap">
+    <div id="board"></div>
+    <div id="banner" class="hidden">
+      <div class="card">
+        <div id="bTitle"></div>
+        <div id="bSub"></div>
+        <button id="bBtn">再来一局</button>
+      </div>
+    </div>
+  </div>
+  <footer>点击翻开 · 长按插旗（或开旗子模式）· 点数字快速翻开周围</footer>
+
+<script id="ms-logic">
+window.MS = (function(){
+  function neighbors(i, rows, cols){
+    const r = (i / cols) | 0, c = i % cols, out = [];
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++){
+      if (!dr && !dc) continue;
+      const nr = r + dr, nc = c + dc;
+      if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) out.push(nr * cols + nc);
+    }
+    return out;
+  }
+  function makeState(rows, cols, mines){
+    const n = rows * cols;
+    if (mines > n - 9) mines = n - 9; // 至少给首击留 3x3 安全区
+    return { rows, cols, mines,
+      mine: new Uint8Array(n), num: new Uint8Array(n),
+      revealed: new Uint8Array(n), flagged: new Uint8Array(n),
+      placed: false, revealedCount: 0, flags: 0 };
+  }
+  function placeMines(st, safe){
+    const n = st.rows * st.cols;
+    const banned = new Set([safe, ...neighbors(safe, st.rows, st.cols)]);
+    const pool = [];
+    for (let i = 0; i < n; i++) if (!banned.has(i)) pool.push(i);
+    if (st.mines > pool.length) throw new Error('too many mines');
+    for (let k = 0; k < st.mines; k++){
+      const j = k + Math.floor(Math.random() * (pool.length - k));
+      const t = pool[k]; pool[k] = pool[j]; pool[j] = t;
+      st.mine[pool[k]] = 1;
+    }
+    for (let i = 0; i < n; i++){
+      let c = 0;
+      for (const nb of neighbors(i, st.rows, st.cols)) c += st.mine[nb];
+      st.num[i] = c;
+    }
+    st.placed = true;
+  }
+  function floodReveal(st, start){
+    if (st.revealed[start] || st.flagged[start]) return { cells: [], hitMine: false, hitIndex: -1 };
+    if (st.mine[start]){
+      st.revealed[start] = 1; st.revealedCount++;
+      return { cells: [start], hitMine: true, hitIndex: start };
+    }
+    const out = [], stack = [start], seen = new Set([start]);
+    while (stack.length){
+      const i = stack.pop();
+      if (st.revealed[i] || st.flagged[i]) continue;
+      st.revealed[i] = 1; st.revealedCount++; out.push(i);
+      if (st.num[i] === 0){
+        for (const nb of neighbors(i, st.rows, st.cols))
+          if (!seen.has(nb) && !st.revealed[nb] && !st.flagged[nb] && !st.mine[nb]){ seen.add(nb); stack.push(nb); }
+      }
+    }
+    return { cells: out, hitMine: false, hitIndex: -1 };
+  }
+  function chord(st, i){
+    if (!st.revealed[i] || st.num[i] === 0) return { cells: [], hitMine: false, hitIndex: -1, noop: true };
+    let f = 0;
+    for (const nb of neighbors(i, st.rows, st.cols)) f += st.flagged[nb];
+    if (f !== st.num[i]) return { cells: [], hitMine: false, hitIndex: -1, noop: true };
+    const out = [];
+    for (const nb of neighbors(i, st.rows, st.cols)){
+      if (st.flagged[nb] || st.revealed[nb]) continue;
+      const r = floodReveal(st, nb);
+      out.push(...r.cells);
+      if (r.hitMine) return { cells: out, hitMine: true, hitIndex: r.hitIndex };
+    }
+    return { cells: out, hitMine: false, hitIndex: -1 };
+  }
+  function toggleFlag(st, i){
+    if (st.revealed[i]) return false;
+    st.flagged[i] ^= 1;
+    st.flags += st.flagged[i] ? 1 : -1;
+    return true;
+  }
+  function isWin(st){ return st.placed && st.revealedCount === st.rows * st.cols - st.mines; }
+  return { neighbors, makeState, placeMines, floodReveal, chord, toggleFlag, isWin };
+})();
+</script>
+<script>
+(function(){
+  const MS = window.MS;
+  const DIFFS = {
+    easy:   { label: '初级', rows: 9,  cols: 9,  mines: 10 },
+    medium: { label: '中级', rows: 16, cols: 16, mines: 40 },
+    hard:   { label: '高级', rows: 16, cols: 30, mines: 99 },
+  };
+  const $ = id => document.getElementById(id);
+  const board = $('board'), wrap = $('boardWrap'), face = $('face');
+  let st = null, cellEls = [], hitIndex = -1;
+  let curDiff = localStorage.getItem('ms-diff') || 'easy';
+  if (!DIFFS[curDiff]) curDiff = 'easy';
+  let flagMode = false, gameOver = false, won = false;
+  let timerId = null, t0 = 0, elapsed = 0, running = false;
+
+  function bestKey(){ return 'ms-best-' + st.rows + 'x' + st.cols + 'x' + st.mines; }
+  function getBest(){ return +(localStorage.getItem(bestKey()) || 0); }
+
+  function fmt(n){
+    if (n < 0) return '-' + String(Math.min(99, -n)).padStart(2, '0');
+    return String(Math.min(999, n)).padStart(3, '0');
+  }
+  function updateCounter(){ $('mineCount').textContent = fmt(st.mines - st.flags); }
+  function updateTime(){ $('time').textContent = fmt(elapsed); }
+
+  function startTimer(){
+    if (running) return;
+    running = true; t0 = performance.now();
+    timerId = setInterval(() => { elapsed = Math.min(999, Math.floor((performance.now() - t0) / 1000)); updateTime(); }, 250);
+  }
+  function stopTimer(){ running = false; clearInterval(timerId); timerId = null; if (running === false && t0) elapsed = Math.min(999, Math.floor((performance.now() - t0) / 1000)); updateTime(); }
+
+  function layout(){
+    const availW = wrap.clientWidth - 14, availH = wrap.clientHeight - 14;
+    let cs = Math.floor(Math.min(availW / st.cols, availH / st.rows, 44));
+    cs = Math.max(cs, 22);
+    document.documentElement.style.setProperty('--cs', cs + 'px');
+  }
+
+  function updateCell(i){
+    const el = cellEls[i];
+    if (st.flagged[i]){
+      if (gameOver && !st.mine[i]){ el.className = 'cell open wrong'; el.textContent = '❌'; }
+      else { el.className = 'cell flag'; el.textContent = '🚩'; }
+      return;
+    }
+    if (st.revealed[i]){
+      if (st.mine[i]){ el.className = 'cell mine' + (i === hitIndex ? ' boom' : ''); el.textContent = '💣'; return; }
+      el.className = 'cell open' + (st.num[i] ? ' n' + st.num[i] : '');
+      el.textContent = st.num[i] || '';
+      return;
+    }
+    if (gameOver && st.mine[i]){ el.className = 'cell mine'; el.textContent = '💣'; return; }
+    el.className = 'cell'; el.textContent = '';
+  }
+  function updateAll(){ for (let i = 0; i < cellEls.length; i++) updateCell(i); }
+
+  function buildBoard(){
+    board.style.gridTemplateColumns = 'repeat(' + st.cols + ', var(--cs))';
+    board.style.gridAutoRows = 'var(--cs)';
+    const frag = document.createDocumentFragment();
+    const n = st.rows * st.cols;
+    for (let i = 0; i < n; i++){
+      const d = document.createElement('div');
+      d.className = 'cell'; d.dataset.i = i;
+      frag.appendChild(d);
+    }
+    board.innerHTML = '';
+    board.appendChild(frag);
+    cellEls = [...board.children];
+  }
+
+  function showBanner(title, sub){
+    $('bTitle').textContent = title;
+    $('bSub').textContent = sub;
+    $('banner').classList.remove('hidden');
+  }
+
+  function doReveal(i){
+    if (gameOver || st.revealed[i] || st.flagged[i]) return;
+    if (!st.placed){ MS.placeMines(st, i); startTimer(); }
+    const r = MS.floodReveal(st, i);
+    for (const c of r.cells) updateCell(c);
+    if (r.hitMine){ lose(r.hitIndex); return; }
+    checkWin();
+  }
+  function doFlag(i){
+    if (gameOver) return;
+    if (MS.toggleFlag(st, i)){ updateCell(i); updateCounter(); }
+  }
+  function doChord(i){
+    if (gameOver) return;
+    const r = MS.chord(st, i);
+    if (r.noop) return;
+    for (const c of r.cells) updateCell(c);
+    if (r.hitMine){ lose(r.hitIndex); return; }
+    checkWin();
+  }
+  function checkWin(){
+    if (!MS.isWin(st)) return;
+    gameOver = true; won = true; hitIndex = -1; stopTimer();
+    for (let i = 0; i < st.mine.length; i++)
+      if (st.mine[i] && !st.flagged[i]){ st.flagged[i] = 1; st.flags++; updateCell(i); }
+    updateCounter();
+    face.textContent = '😎';
+    const best = getBest();
+    let sub = '用时 ' + elapsed + ' 秒 · ' + DIFFS[curDiff].label;
+    if (!best || elapsed < best){
+      localStorage.setItem(bestKey(), elapsed);
+      sub += ' · 🏆 新纪录！';
+    } else sub += ' · 最佳 ' + best + ' 秒';
+    showBanner('🎉 扫雷成功！', sub);
+  }
+  function lose(hit){
+    gameOver = true; won = false; hitIndex = hit; stopTimer();
+    updateAll();
+    face.textContent = '😵';
+    if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
+    showBanner('💥 踩雷了！', '翻开了 ' + st.revealedCount + ' 格 · 点表情重开');
+  }
+
+  function newGame(){
+    const d = DIFFS[curDiff];
+    st = MS.makeState(d.rows, d.cols, d.mines);
+    hitIndex = -1; gameOver = false; won = false;
+    stopTimer(); elapsed = 0; t0 = 0; updateTime(); updateCounter();
+    face.textContent = '😊';
+    $('banner').classList.add('hidden');
+    buildBoard(); layout();
+    document.querySelectorAll('.diff').forEach(b => b.classList.toggle('active', b.dataset.d === curDiff));
+    localStorage.setItem('ms-diff', curDiff);
+  }
+
+  /* ---------- 输入：长按插旗 / 轻点翻开 / 右键插旗 ---------- */
+  let pressTimer = null, pressFired = false, startXY = null, pressCell = -1;
+  function clearPress(){ clearTimeout(pressTimer); pressFired = false; startXY = null; pressCell = -1; }
+
+  board.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    const cell = e.target.closest('.cell'); if (!cell || gameOver) return;
+    const i = +cell.dataset.i;
+    if (st.revealed[i]) doChord(i); else doFlag(i);
+  });
+  board.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const cell = e.target.closest('.cell'); if (!cell || gameOver) return;
+    pressCell = +cell.dataset.i; pressFired = false;
+    startXY = [e.clientX, e.clientY];
+    clearTimeout(pressTimer);
+    pressTimer = setTimeout(() => {
+      pressFired = true;
+      doFlag(pressCell);
+      if (navigator.vibrate) navigator.vibrate(30);
+    }, 320);
+  });
+  board.addEventListener('pointermove', e => {
+    if (!startXY) return;
+    if (Math.hypot(e.clientX - startXY[0], e.clientY - startXY[1]) > 12) clearPress();
+  });
+  board.addEventListener('pointercancel', clearPress);
+  window.addEventListener('pointerup', () => {
+    clearTimeout(pressTimer);
+    if (!startXY) return;
+    const fired = pressFired, pc = pressCell;
+    clearPress();
+    if (fired || pc < 0 || gameOver) return;
+    if (st.revealed[pc]){ doChord(pc); return; }
+    if (flagMode){ doFlag(pc); return; }
+    if (st.flagged[pc]) return;
+    doReveal(pc);
+  });
+
+  face.addEventListener('click', newGame);
+  $('bBtn').addEventListener('click', newGame);
+  $('flagBtn').addEventListener('click', function(){
+    flagMode = !flagMode;
+    this.classList.toggle('active', flagMode);
+  });
+  document.querySelectorAll('.diff').forEach(b => b.addEventListener('click', () => {
+    curDiff = b.dataset.d; newGame();
+  }));
+  window.addEventListener('resize', () => { if (st) layout(); });
+  document.addEventListener('gesturestart', e => e.preventDefault());
+
+  newGame();
+})();
+</script>
+</body>
+</html>
